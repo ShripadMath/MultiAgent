@@ -47,7 +47,11 @@ money_movement_agent = Agent(
 manager_agent = Agent(
     name="ManagerAgent",
     instructions=prompt_with_handoff_instructions(
-        "Route account-related queries to the AccountAgent. Route money transfer queries to the MoneyMovementAgent. Never answer directly."
+        """"
+        Route account-related queries to the AccountAgent when only the account number is provided. 
+        Route money movement queries to the MoneyMovementAgent when both the account number and the transfer date are provided. 
+        Never answer directly.
+        """
     ),
     model="gpt-4o-mini",
     handoffs=[account_agent, money_movement_agent],
@@ -93,40 +97,54 @@ def extract_account_number(msg):
 
 
 async def text_flow():
-    msg = input("Please provide your account number:")
-
-    # If account number is not provided, ask the user for it
-    # if "account number" not in msg.lower():
-    #     print("Please provide the details:")
-    #     msg = input("Enter account number: ")
-    if extract_account_number(msg):
-        account_number = msg
-    else:
-        print("Account number not provided. Asking user for it.")
+    choice = input("Please select an option: (1) Account Transfer (2) Money Transfer: ").strip()
+    if choice == '1':
+        print("You selected Account Transfer. Please provide your account number.")
         while True:
             msg = input("Enter account number: ").strip()
-            if extract_account_number(msg):
-                print('Extracted Account:', extract_account_number(msg))  # Print the extracted account number
-                print('Full user input msg:', msg)
-                account_number = extract_account_number(msg)
+            account_number = extract_account_number(msg)
+            if account_number:
+                print(f'Extracted Account: {account_number}')
                 break
             else:
                 print("Invalid account number format. Please try again.")
-    with trace("Manager Orchestrator Run"):
-        manager_result = await Runner.run(manager_agent, account_number)
+        with trace("Manager Orchestrator Run - Account Transfer"):
+            manager_result = await Runner.run(manager_agent, account_number)
 
-        for item in manager_result.new_items:
-            if isinstance(item, MessageOutputItem):
-                text = ItemHelpers.text_message_output(item)
-                if text:
-                    print(f"  - Agent Response: {text}")
+    elif choice == '2':
+        print("You selected Money Transfer. Please provide your account number and transfer date.")
+        while True:
+            msg = input("Enter account number: ").strip()
+            account_number = extract_account_number(msg)
+            if account_number:
+                print(f'Extracted Account: {account_number}')
+                break
+            else:
+                print("Invalid account number format. Please try again.")
+        while True:
+            msg = input("Enter the transfer date (in format dd-mm-yyyy or dd/mm/yyyy): ").strip()
+            match = re.search(r'\b\d{2}[-/]\d{2}[-/]\d{4}\b', msg)
+            if match:
+                transfer_date = match.group()
+                print(f'Extracted Transfer Date: {transfer_date}')
+                break
+            else:
+                print("Invalid date format. Please try again.")
+        final_input = f"Account number: {account_number}, Transfer date: {transfer_date}"
+        with trace("Manager Orchestrator Run - Money Transfer"):
+            manager_result = await Runner.run(manager_agent, final_input)
 
-        synthesizer_result = await Runner.run(
-            synthesizer_agent, manager_result.to_input_list()
-        )
+    else:
+        print("Invalid choice. Please select '1' for Account Transfer or '2' for Money Transfer.")
+        return
+    for item in manager_result.new_items:
+        if isinstance(item, MessageOutputItem):
+            text = ItemHelpers.text_message_output(item)
+            if text:
+                print(f"  - Agent Response: {text}")
 
+    synthesizer_result = await Runner.run(synthesizer_agent, manager_result.to_input_list())
     print(f"\n\nFinal response:\n{synthesizer_result.final_output}")
-
 
 async def main():
     while True:
