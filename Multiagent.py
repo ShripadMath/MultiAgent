@@ -10,7 +10,7 @@ weather_agent = Agent(
     handoff_description="A weather information agent",
 )
 
-o
+
 politics_agent = Agent(
     name="politics_agent",
     instructions="You answer politics-related queries by responding with 'Hello NewYork.'",
