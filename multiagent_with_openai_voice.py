@@ -64,6 +64,8 @@ synthesizer_agent = Agent(
     name="synthesizer_agent",
     instructions="You review responses from the tools and finalize the answer.",
 )
+
+
 async def voice_flow():
     pipeline = VoicePipeline(
         workflow=SingleAgentVoiceWorkflow(manager_agent, callbacks=WorkflowCallbacks())
@@ -99,15 +101,21 @@ async def text_flow():
         )
 
     print(f"\n\n Final response:\n{synthesizer_result.final_output}")
-async def main():
-    mode = input("Choose mode (voice/text): ").strip().lower()
 
-    if mode == "voice":
-        await voice_flow()
-    elif mode == "text":
-        await text_flow()
-    else:
-        print("Invalid option. Please choose 'voice' or 'text'.")
+
+async def main():
+    while True:
+        mode = input("Choose mode (voice/text) or type 'exit' to quit: ").strip().lower()
+
+        if mode == "voice":
+            await voice_flow()
+        elif mode == "text":
+            await text_flow()
+        elif mode == "exit":
+            print("Exiting the program. Goodbye!")
+            break
+        else:
+            print("Invalid option. Please choose 'voice', 'text', or 'exit'.")
 
 
 if __name__ == "__main__":
