@@ -1,5 +1,4 @@
 import asyncio
-import random
 from agents import Agent, function_tool
 from agents import ItemHelpers, MessageOutputItem, Runner, trace
 from agents.extensions.handoff_prompt import prompt_with_handoff_instructions
@@ -31,15 +30,14 @@ def get_money_movement_status(account_number: str, transfer_date: str) -> str:
 account_agent = Agent(
     name="AccountAgent",
     handoff_description="Handles account transfer and account-related queries.",
-    instructions="Ask for account number if not provided and then proceed with account details.",
-    model="gpt-4o-mini",
+    instructions="Ask for account number if not provided and then proceed with account details.You're speaking to a human, so be polite and concise. Speak in English.",
     tools=[get_acat_details],
 )
 
 money_movement_agent = Agent(
     name="MoneyMovementAgent",
     handoff_description="Handles money transfer and movement queries.",
-    instructions="Ask for account number and transfer date if not provided. Then proceed with money movement status.",
+    instructions="Ask for account number and transfer date if not provided. Then proceed with money movement status.You're speaking to a human, so be polite and concise. Speak in English.",
     model="gpt-4o-mini",
     tools=[get_money_movement_status],
 )
@@ -50,7 +48,8 @@ manager_agent = Agent(
         """"
         Route account-related queries to the AccountAgent when only the account number is provided. 
         Route money movement queries to the MoneyMovementAgent when both the account number and the transfer date are provided. 
-        Never answer directly.
+        Never answer directly.Use only English laguage for communication.No other language.
+        You're speaking to a human, so be polite and concise. Speak in English.
         """
     ),
     model="gpt-4o-mini",
@@ -66,7 +65,7 @@ class WorkflowCallbacks(SingleAgentWorkflowCallbacks):
 
 synthesizer_agent = Agent(
     name="synthesizer_agent",
-    instructions="You review responses from the tools and finalize the answer.",
+    instructions="You review responses from the tools and finalize the answer.The final response should be only in English.No other languages.",
 )
 
 
