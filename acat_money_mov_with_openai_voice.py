@@ -5,12 +5,13 @@ from agents.extensions.handoff_prompt import prompt_with_handoff_instructions
 from agents.voice import (
     AudioInput,
     SingleAgentVoiceWorkflow,
-    SingleAgentWorkflowCallbacks,
+    SingleAgentWorkflowCallbacks, 
     VoicePipeline,
 )
 from util import AudioPlayer, record_audio
 import re
-
+from openai import OpenAI
+client = OpenAI()
 
 # Tool to get account details (ACAT)
 @function_tool
@@ -30,27 +31,27 @@ def get_money_movement_status(account_number: str, transfer_date: str) -> str:
 account_agent = Agent(
     name="AccountAgent",
     handoff_description="Handles account transfer and account-related queries.",
-    instructions="Ask for account number if not provided and then proceed with account details.You're speaking to a human, so be polite and concise. Speak in English.",
+    instructions="You must respond ONLY in English. Do not use any other language.Ask for account number if not provided and then proceed with account details.You're speaking to a human, so be polite and concise.",
     tools=[get_acat_details],
 )
 
 money_movement_agent = Agent(
     name="MoneyMovementAgent",
     handoff_description="Handles money transfer and movement queries.",
-    instructions="Ask for account number and transfer date if not provided. Then proceed with money movement status.You're speaking to a human, so be polite and concise. Speak in English.",
+    instructions="You must respond ONLY in English. Do not use any other language. Ask for account number and transfer date if not provided. Then proceed with money movement status. You're speaking to a human, so be polite and concise.",
     model="gpt-4o-mini",
     tools=[get_money_movement_status],
 )
+
 # Manager agent acts as router
 manager_agent = Agent(
     name="ManagerAgent",
     instructions=prompt_with_handoff_instructions(
-        """"
+        """You must respond ONLY in English. Do not use any other language.
         Route account-related queries to the AccountAgent when only the account number is provided. 
         Route money movement queries to the MoneyMovementAgent when both the account number and the transfer date are provided. 
-        Never answer directly.Use only English laguage for communication.No other language.
-        You're speaking to a human, so be polite and concise. Speak in English.
-        """
+        Never answer directly. Use only English language for communication. No other language.
+        You're speaking to a human, so be polite and concise."""
     ),
     model="gpt-4o-mini",
     handoffs=[account_agent, money_movement_agent],
@@ -65,15 +66,13 @@ class WorkflowCallbacks(SingleAgentWorkflowCallbacks):
 
 synthesizer_agent = Agent(
     name="synthesizer_agent",
-    instructions="You review responses from the tools and finalize the answer.The final response should be only in English.No other languages.",
+    instructions="You must respond ONLY in English. Do not use any other language.You review responses from the tools and finalize the answer.",
 )
 
 
 async def voice_flow():
     pipeline = VoicePipeline(
-        workflow=SingleAgentVoiceWorkflow(manager_agent, callbacks=WorkflowCallbacks())
-    )
-
+        workflow=SingleAgentVoiceWorkflow(manager_agent, callbacks=WorkflowCallbacks()))
     audio_input = AudioInput(buffer=record_audio())
 
     result = await pipeline.run(audio_input)
@@ -85,6 +84,8 @@ async def voice_flow():
                 print("Received audio")
             elif event.type == "voice_stream_event_lifecycle":
                 print(f"Received lifecycle event: {event.event}")
+
+    print("\nVoice mode ended. You can exit or continue in text mode.")
 
 
 def extract_account_number(msg):
@@ -145,6 +146,9 @@ async def text_flow():
     synthesizer_result = await Runner.run(synthesizer_agent, manager_result.to_input_list())
     print(f"\n\nFinal response:\n{synthesizer_result.final_output}")
 
+    print("\nText mode ended. You can exit or switch to voice mode.")
+
+
 async def main():
     while True:
         mode = input("Choose mode (voice/text) or type 'exit' to quit: ").strip().lower()
@@ -158,7 +162,7 @@ async def main():
             break
         else:
             print("Invalid option. Please choose 'voice', 'text', or 'exit'.")
-
+            continue
 
 if __name__ == "__main__":
     asyncio.run(main())
